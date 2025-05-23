@@ -1,0 +1,23 @@
+package routes
+
+import (
+	"github.com/gorilla/mux"
+	"github.com/koushikidey/go-meetingroombook/pkg/controllers"
+)
+
+func RegisterMeetingRoomRoutes(router *mux.Router) {
+
+	router.HandleFunc("/employees", controllers.CreateEmployee).Methods("POST")
+	router.HandleFunc("/employees", controllers.GetEmployees).Methods("GET")
+	router.HandleFunc("/employees/{id}", controllers.UpdateEmployees).Methods("PUT")
+
+	router.HandleFunc("/rooms", controllers.CreateRoom).Methods("POST")
+	router.HandleFunc("/rooms", controllers.GetRooms).Methods("GET")
+	router.HandleFunc("/rooms/{id}", controllers.UpdateRoom).Methods("PUT")
+
+	router.HandleFunc("/bookings", controllers.CreateBooking).Methods("POST")
+	router.HandleFunc("/bookings", controllers.GetBookings).Methods("GET")
+	router.HandleFunc("/bookings/{id}", controllers.GetBooking).Methods("GET")
+	router.HandleFunc("/bookings/{id}", controllers.UpdateBooking).Methods("PUT")
+	router.HandleFunc("/bookings/{id}", controllers.DeleteBooking).Methods("DELETE")
+}

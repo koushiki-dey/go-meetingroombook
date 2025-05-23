@@ -3,10 +3,19 @@ package config
 import (
 	"log"
 
+	"github.com/joho/godotenv"
 	"github.com/koushikidey/go-meetingroombook/pkg/models"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
+
+func init() {
+
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+}
 
 var (
 	db *gorm.DB

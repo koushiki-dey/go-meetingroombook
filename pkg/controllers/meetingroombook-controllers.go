@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -78,6 +79,12 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not create booking", http.StatusInternalServerError)
 		return
 	}
+
+	var employee models.Employee
+	db.First(&employee, employeeID)
+	message := fmt.Sprintf("Hi %s,\n\nYour meeting room booking is confirmed from %s to %s in Room ID %d.",
+		employee.Name, booking.StartTime, booking.EndTime, booking.RoomID)
+	go utils.SendEmail(employee.Email, "Meeting Room Booking Confirmation", message)
 
 	resp, _ := json.Marshal(booking)
 	w.Header().Set("Content-Type", "application/json")

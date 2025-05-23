@@ -10,7 +10,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/koushikidey/go-meetingroombook/pkg/config"
 	"github.com/koushikidey/go-meetingroombook/pkg/models"
+	session "github.com/koushikidey/go-meetingroombook/pkg/sessions"
 	"github.com/koushikidey/go-meetingroombook/pkg/utils"
+	"gorm.io/gorm"
 )
 
 func CreateEmployee(w http.ResponseWriter, r *http.Request) {
@@ -78,4 +80,43 @@ func UpdateEmployees(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 
+}
+
+func GetEmployee(w http.ResponseWriter, r *http.Request) {
+	session, _ := session.GetStore().Get(r, "session")
+	employeeID, ok := session.Values["employee_id"].(uint)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	idParam := mux.Vars(r)["id"]
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		http.Error(w, "Invalid Employee id", http.StatusBadRequest)
+		return
+	}
+
+	var employee models.Employee
+	config.Connect()
+	db := config.GetDB()
+	result := db.Preload("Bookings.Room").Preload("Bookings.Employee").First(&employee, id)
+
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			http.Error(w, "Employee not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Failed to retrieve employee", http.StatusInternalServerError)
+		return
+	}
+
+	if employee.ID != employeeID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	resp, _ := json.Marshal(employee)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resp)
 }

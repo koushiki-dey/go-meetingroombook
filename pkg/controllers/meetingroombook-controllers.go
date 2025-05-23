@@ -7,14 +7,21 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"gorm.io/gorm"
-
 	"github.com/koushikidey/go-meetingroombook/pkg/config"
 	"github.com/koushikidey/go-meetingroombook/pkg/models"
+	session "github.com/koushikidey/go-meetingroombook/pkg/sessions"
 	"github.com/koushikidey/go-meetingroombook/pkg/utils"
+	"gorm.io/gorm"
 )
 
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
+	session, _ := session.GetStore().Get(r, "session")
+	employeeID, ok := session.Values["employee_id"].(uint)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	config.Connect()
 	if err != nil {
@@ -39,16 +46,15 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	var existingBookings []models.Booking
 	config.Connect()
 	db := config.GetDB()
+	var existingBookings []models.Booking
 	db.Where("room_id = ?", booking.RoomID).Find(&existingBookings)
 
 	var room models.Room
 	db.Where("ID=?", booking.RoomID).Find(&room)
-	var currentCapacity = len(existingBookings) + 1
-	var maxCapacity = *room.Capacity
+	currentCapacity := len(existingBookings) + 1
+	maxCapacity := *room.Capacity
 	_, err = utils.IsCapacityExceeding(currentCapacity, maxCapacity)
 	if err != nil {
 		http.Error(w, "Capacity Exceeded", http.StatusBadRequest)
@@ -67,6 +73,7 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	booking.EmployeeID = employeeID
 	if err := db.Create(&booking).Error; err != nil {
 		http.Error(w, "Could not create booking", http.StatusInternalServerError)
 		return
@@ -79,17 +86,31 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetBookings(w http.ResponseWriter, r *http.Request) {
+	// session, _ := session.GetStore().Get(r, "session")
+	// employeeID, ok := session.Values["employee_id"].(uint)
+	// if !ok {
+	// 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	// 	return
+	// }
+
 	var bookings []models.Booking
 	config.Connect()
 	db := config.GetDB()
+	//db.Preload("Room").Preload("Employee").Where("employee_id = ?", employeeID).Find(&bookings)
 	db.Preload("Room").Preload("Employee").Find(&bookings)
-
 	resp, _ := json.Marshal(bookings)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resp)
 }
 
 func GetBooking(w http.ResponseWriter, r *http.Request) {
+	session, _ := session.GetStore().Get(r, "session")
+	employeeID, ok := session.Values["employee_id"].(uint)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	idParam := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
@@ -110,12 +131,24 @@ func GetBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if booking.EmployeeID != employeeID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	resp, _ := json.Marshal(booking)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resp)
 }
 
 func UpdateBooking(w http.ResponseWriter, r *http.Request) {
+	session, _ := session.GetStore().Get(r, "session")
+	employeeID, ok := session.Values["employee_id"].(uint)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	idParam := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
@@ -128,6 +161,11 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 	db := config.GetDB()
 	if err := db.First(&existing, id).Error; err != nil {
 		http.Error(w, "Booking not found", http.StatusNotFound)
+		return
+	}
+
+	if existing.EmployeeID != employeeID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -177,16 +215,33 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteBooking(w http.ResponseWriter, r *http.Request) {
+	session, _ := session.GetStore().Get(r, "session")
+	employeeID, ok := session.Values["employee_id"].(uint)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	idParam := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
 		http.Error(w, "Invalid booking ID", http.StatusBadRequest)
 		return
 	}
-
 	config.Connect()
 	db := config.GetDB()
-	if err := db.Delete(&models.Booking{}, id).Error; err != nil {
+	var booking models.Booking
+	if err := db.First(&booking, id).Error; err != nil {
+		http.Error(w, "Booking not found", http.StatusNotFound)
+		return
+	}
+
+	if booking.EmployeeID != employeeID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := db.Delete(&booking).Error; err != nil {
 		http.Error(w, "Failed to delete booking", http.StatusInternalServerError)
 		return
 	}

@@ -3,6 +3,8 @@ package config
 import (
 	"log"
 
+	"os"
+
 	"github.com/joho/godotenv"
 	"github.com/koushikidey/go-meetingroombook/pkg/models"
 	"gorm.io/driver/mysql"
@@ -29,7 +31,7 @@ func MigrateDB(db *gorm.DB) {
 	db.AutoMigrate(&models.Room{}, &models.Employee{}, &models.Booking{})
 }
 func Connect() {
-	dsn := "root:@midnighTS13@tcp(127.0.0.1:3306)/simplerest?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := os.Getenv("DB_DSN")
 
 	d, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {

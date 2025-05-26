@@ -8,33 +8,20 @@ import (
 	"time"
 )
 
-func ValidateTimeFormat(timeStr string) error {
-	_, err := time.Parse(time.RFC3339, timeStr)
-	if err != nil {
-		return errors.New("time must be in RFC3339 format i.e. yyyy-MM-ddThh:mm:ss.sssZ (e.g., 2025-05-22T15:00:00Z)")
+func ValidateTimeFormat(t time.Time) error {
+	if t.IsZero() {
+		return errors.New("time cannot be zero value")
 	}
+
 	return nil
 }
 
-func IsTimeConflict(start1, end1, start2, end2 string) (bool, error) {
-	t1Start, err := time.Parse(time.RFC3339, start1)
-	if err != nil {
-		return false, err
-	}
-	t1End, err := time.Parse(time.RFC3339, end1)
-	if err != nil {
-		return false, err
-	}
-	t2Start, err := time.Parse(time.RFC3339, start2)
-	if err != nil {
-		return false, err
-	}
-	t2End, err := time.Parse(time.RFC3339, end2)
-	if err != nil {
-		return false, err
+func IsTimeConflict(start1, end1, start2, end2 time.Time) (bool, error) {
+	if start1.IsZero() || end1.IsZero() || start2.IsZero() || end2.IsZero() {
+		return false, errors.New("one or more times are zero")
 	}
 
-	if t1Start.Before(t2End) && t2Start.Before(t1End) {
+	if start1.Before(end2) && start2.Before(end1) {
 		return true, nil
 	}
 	return false, nil

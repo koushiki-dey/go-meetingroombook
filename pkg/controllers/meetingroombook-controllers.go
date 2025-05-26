@@ -34,7 +34,7 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
 		return
 	}
-	if booking.EndTime < booking.StartTime {
+	if booking.EndTime.Before(booking.StartTime) {
 		http.Error(w, "End time is before start time", http.StatusBadRequest)
 		return
 	}

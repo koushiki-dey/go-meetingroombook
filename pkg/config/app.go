@@ -28,7 +28,7 @@ func GetDB() *gorm.DB {
 }
 
 func MigrateDB(db *gorm.DB) {
-	db.AutoMigrate(&models.Room{}, &models.Employee{}, &models.Booking{})
+	db.AutoMigrate(&models.Room{}, &models.Employee{}, &models.Booking{}, &models.GoogleToken{})
 }
 func Connect() {
 	dsn := os.Getenv("DB_DSN")

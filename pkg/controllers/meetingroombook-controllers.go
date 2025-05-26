@@ -7,28 +7,36 @@ import (
 	"net/http"
 	"strconv"
 
+	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/koushikidey/go-meetingroombook/pkg/config"
+	"github.com/koushikidey/go-meetingroombook/pkg/googleapi"
 	"github.com/koushikidey/go-meetingroombook/pkg/models"
 	session "github.com/koushikidey/go-meetingroombook/pkg/sessions"
 	"github.com/koushikidey/go-meetingroombook/pkg/utils"
+	"golang.org/x/oauth2"
+	"google.golang.org/api/calendar/v3"
 	"gorm.io/gorm"
 )
 
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
-	session, _ := session.GetStore().Get(r, "session")
-	employeeID, ok := session.Values["employee_id"].(uint)
+	sessionData, _ := session.GetStore().Get(r, "session")
+	employeeID, ok := sessionData.Values["employee_id"].(uint)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	body, err := io.ReadAll(r.Body)
-	config.Connect()
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	config.Connect()
+	db := config.GetDB()
+
 	var booking models.Booking
 	if err := json.Unmarshal(body, &booking); err != nil {
 		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
@@ -38,7 +46,6 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "End time is before start time", http.StatusBadRequest)
 		return
 	}
-
 	if err := utils.ValidateTimeFormat(booking.StartTime); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -47,17 +54,15 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	config.Connect()
-	db := config.GetDB()
+
 	var existingBookings []models.Booking
 	db.Where("room_id = ?", booking.RoomID).Find(&existingBookings)
 
 	var room models.Room
-	db.Where("ID=?", booking.RoomID).Find(&room)
+	db.Where("ID = ?", booking.RoomID).Find(&room)
 	currentCapacity := len(existingBookings) + 1
 	maxCapacity := *room.Capacity
-	_, err = utils.IsCapacityExceeding(currentCapacity, maxCapacity)
-	if err != nil {
+	if _, err := utils.IsCapacityExceeding(currentCapacity, maxCapacity); err != nil {
 		http.Error(w, "Capacity Exceeded", http.StatusBadRequest)
 		return
 	}
@@ -85,6 +90,43 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	message := fmt.Sprintf("Hi %s,\n\nYour meeting room booking is confirmed from %s to %s in Room ID %d.",
 		employee.Name, booking.StartTime, booking.EndTime, booking.RoomID)
 	go utils.SendEmail(employee.Email, "Meeting Room Booking Confirmation", message)
+
+	var token models.GoogleToken
+	if err := db.Where("employee_id = ?", employeeID).First(&token).Error; err == nil {
+		oauthToken := &oauth2.Token{
+			AccessToken:  token.AccessToken,
+			RefreshToken: token.RefreshToken,
+			Expiry:       token.Expiry,
+		}
+
+		client := googleapi.GetClient(oauthToken)
+
+		srv, err := calendar.New(client)
+		if err == nil {
+			event := &calendar.Event{
+				Summary:     "Meeting Room Booking",
+				Location:    fmt.Sprintf("Room ID %d", booking.RoomID),
+				Description: fmt.Sprintf("Booked by %s", employee.Name),
+				Start: &calendar.EventDateTime{
+					DateTime: booking.StartTime.Format(time.RFC3339),
+					TimeZone: "Asia/Kolkata",
+				},
+				End: &calendar.EventDateTime{
+					DateTime: booking.EndTime.Format(time.RFC3339),
+					TimeZone: "Asia/Kolkata",
+				},
+			}
+
+			_, err = srv.Events.Insert("primary", event).Do()
+			if err != nil {
+				fmt.Printf("Failed to create Google Calendar event: %v\n", err)
+			}
+		} else {
+			fmt.Printf("Failed to create Google Calendar client: %v\n", err)
+		}
+	} else {
+		fmt.Println("Google Calendar not linked for employee:", employeeID)
+	}
 
 	resp, _ := json.Marshal(booking)
 	w.Header().Set("Content-Type", "application/json")

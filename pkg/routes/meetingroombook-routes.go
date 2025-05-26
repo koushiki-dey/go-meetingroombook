@@ -24,4 +24,8 @@ func RegisterMeetingRoomRoutes(router *mux.Router) {
 	router.HandleFunc("/bookings/{id}", controllers.GetBooking).Methods("GET")
 	router.HandleFunc("/bookings/{id}", controllers.UpdateBooking).Methods("PUT")
 	router.HandleFunc("/bookings/{id}", controllers.DeleteBooking).Methods("DELETE")
+
+	router.HandleFunc("/google/login", controllers.GoogleLogin).Methods("GET")
+	router.HandleFunc("/oauth2callback", controllers.GoogleCallback).Methods("GET")
+
 }

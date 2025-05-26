@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 
 	"github.com/koushikidey/go-meetingroombook/pkg/config"
 	"github.com/koushikidey/go-meetingroombook/pkg/models"
@@ -52,10 +53,24 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, _ := session.GetStore().Get(r, "session")
-	session.Values["employee_id"] = employee.ID
-	session.Save(r, w)
+	sess, _ := session.GetStore().Get(r, "session")
+	sess.Values["employee_id"] = employee.ID
+	sess.Options.HttpOnly = true
+	sess.Options.SameSite = http.SameSiteLaxMode
+	//sess.Options.SameSite = http.SameSiteNoneMode // Allow on cross-site
+	sess.Options.Secure = false
+	sess.Options.Path = "/"
+	if os.Getenv("ENV") != "production" {
+		sess.Options.Secure = false
+	} else {
+		sess.Options.Secure = true
+	}
+	sess.Save(r, w)
 
+	// Optional: Debugging
+	// fmt.Printf("Login success: session set for employee_id=%d\n", employee.ID)
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "Login successful"})
 }
 

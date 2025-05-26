@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
+
+	"path/filepath"
 
 	"github.com/gorilla/mux"
 	"github.com/koushikidey/go-meetingroombook/pkg/config"
+	"github.com/koushikidey/go-meetingroombook/pkg/googleapi"
 	"github.com/koushikidey/go-meetingroombook/pkg/models"
 	"github.com/koushikidey/go-meetingroombook/pkg/routes"
 	"github.com/koushikidey/go-meetingroombook/pkg/utils"
@@ -68,10 +72,47 @@ func main() {
 	config.Connect()
 
 	startReminderJob()
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	redirectURL := os.Getenv("GOOGLE_REDIRECT_URL")
+
+	googleapi.InitOAuth(clientID, clientSecret, redirectURL)
 
 	router := mux.NewRouter()
 	routes.RegisterMeetingRoomRoutes(router)
-	http.Handle("/", router)
+	//http.Handle("/", router)
+	//router.PathPrefix("/").Handler(http.FileServer(http.Dir("./frontend/")))
+	//router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./frontend/"))))
+	//router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("../../frontend/index.html"))))
+	// Check if file exists
+	// path := "../../frontend"
+	// _, err := os.Stat(filepath.Join(path, "index.html"))
+	// if err != nil {
+	// 	log.Fatalf("index.html not found at %s: %v", path, err)
+	// } else {
+	// 	log.Println("index.html found and will be served from:", path)
+	// }
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatal("Failed to get working dir:", err)
+	}
+
+	// This now points to your actual frontend folder
+	frontendPath := filepath.Join(wd, "frontend")
+
+	// Check if index.html exists
+	_, err = os.Stat(filepath.Join(frontendPath, "index.html"))
+	if err != nil {
+		log.Fatalf("index.html not found at %s: %v", frontendPath, err)
+	}
+
+	log.Println("index.html found! Serving from:", frontendPath)
+
+	// Serve files
+	router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir(frontendPath))))
+
+	// Serve static
+	//router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir(path))))
 
 	log.Println(" Server running at http://localhost:9010")
 	log.Fatal(http.ListenAndServe("localhost:9010", router))

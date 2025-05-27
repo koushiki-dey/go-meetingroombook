@@ -36,7 +36,7 @@ func startReminderJob() {
 			now.Format(time.RFC3339),
 			future.Format(time.RFC3339),
 		)
-		result := db.Where("start_time BETWEEN ? AND ?", now, future).Find(&bookings)
+		result := db.Where("start_time BETWEEN ? AND ? AND reminder_sent = ?", now, future, false).Find(&bookings)
 		if result.Error != nil {
 			log.Printf("Error fetching bookings: %v", result.Error)
 			return
@@ -56,6 +56,7 @@ func startReminderJob() {
 
 			log.Printf(" Sending reminder to %s", employee.Email)
 			go utils.SendEmail(employee.Email, "Meeting Reminder", msg)
+			db.Model(&booking).Update("ReminderSent", true)
 		}
 	})
 
@@ -80,39 +81,19 @@ func main() {
 
 	router := mux.NewRouter()
 	routes.RegisterMeetingRoomRoutes(router)
-	//http.Handle("/", router)
-	//router.PathPrefix("/").Handler(http.FileServer(http.Dir("./frontend/")))
-	//router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./frontend/"))))
-	//router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("../../frontend/index.html"))))
-	// Check if file exists
-	// path := "../../frontend"
-	// _, err := os.Stat(filepath.Join(path, "index.html"))
-	// if err != nil {
-	// 	log.Fatalf("index.html not found at %s: %v", path, err)
-	// } else {
-	// 	log.Println("index.html found and will be served from:", path)
-	// }
+
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Fatal("Failed to get working dir:", err)
 	}
-
-	// This now points to your actual frontend folder
 	frontendPath := filepath.Join(wd, "frontend")
-
-	// Check if index.html exists
 	_, err = os.Stat(filepath.Join(frontendPath, "index.html"))
 	if err != nil {
 		log.Fatalf("index.html not found at %s: %v", frontendPath, err)
 	}
 
 	log.Println("index.html found! Serving from:", frontendPath)
-
-	// Serve files
 	router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir(frontendPath))))
-
-	// Serve static
-	//router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir(path))))
 
 	log.Println(" Server running at http://localhost:9010")
 	log.Fatal(http.ListenAndServe("localhost:9010", router))

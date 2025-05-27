@@ -3,7 +3,6 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 
 	"github.com/koushikidey/go-meetingroombook/pkg/config"
 	"github.com/koushikidey/go-meetingroombook/pkg/models"
@@ -57,14 +56,13 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	sess.Values["employee_id"] = employee.ID
 	sess.Options.HttpOnly = true
 	sess.Options.SameSite = http.SameSiteLaxMode
-	//sess.Options.SameSite = http.SameSiteNoneMode // Allow on cross-site
 	sess.Options.Secure = false
 	sess.Options.Path = "/"
-	if os.Getenv("ENV") != "production" {
-		sess.Options.Secure = false
-	} else {
-		sess.Options.Secure = true
-	}
+	// if os.Getenv("ENV") != "production" {
+	// 	sess.Options.Secure = false
+	// } else {
+	// 	sess.Options.Secure = true
+	// }
 	sess.Save(r, w)
 
 	// Optional: Debugging

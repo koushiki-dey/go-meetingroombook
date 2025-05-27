@@ -60,15 +60,15 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	var room models.Room
 	db.Where("ID = ?", booking.RoomID).Find(&room)
-	currentCapacity := len(existingBookings) + 1
+	numberOfAttendees := booking.NumAttendees
 	maxCapacity := *room.Capacity
-	if _, err := utils.IsCapacityExceeding(currentCapacity, maxCapacity); err != nil {
+	if _, err := utils.IsCapacityExceeding(numberOfAttendees, maxCapacity); err != nil {
 		http.Error(w, "Capacity Exceeded", http.StatusBadRequest)
 		return
 	}
 
 	for _, b := range existingBookings {
-		conflict, err := utils.IsTimeConflict(booking.StartTime, booking.EndTime, b.StartTime, b.EndTime)
+		conflict, err := utils.IsBookingConflict(booking.StartTime, booking.EndTime, b.StartTime, b.EndTime, b.Room, booking.Room)
 		if err != nil {
 			http.Error(w, "Error checking for conflicts", http.StatusInternalServerError)
 			return
@@ -237,7 +237,7 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 	var conflicts []models.Booking
 	db.Where("room_id = ? AND id != ?", updated.RoomID, id).Find(&conflicts)
 	for _, b := range conflicts {
-		conflict, err := utils.IsTimeConflict(updated.StartTime, updated.EndTime, b.StartTime, b.EndTime)
+		conflict, err := utils.IsBookingConflict(updated.StartTime, updated.EndTime, b.StartTime, b.EndTime, updated.Room, b.Room)
 		if err != nil {
 			http.Error(w, "Error checking for conflicts", http.StatusInternalServerError)
 			return
@@ -252,10 +252,53 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 	existing.EmployeeID = updated.EmployeeID
 	existing.StartTime = updated.StartTime
 	existing.EndTime = updated.EndTime
+	existing.NumAttendees = updated.NumAttendees
 
 	if err := db.Save(&existing).Error; err != nil {
 		http.Error(w, "Failed to update booking", http.StatusInternalServerError)
 		return
+	}
+	var employee models.Employee
+	db.First(&employee, employeeID)
+	message := fmt.Sprintf("Hi %s,\n\nYour meeting room booking is confirmed from %s to %s in Room ID %d.",
+		employee.Name, existing.StartTime, existing.EndTime, existing.RoomID)
+	go utils.SendEmail(employee.Email, "Meeting Room Booking Updated and Confirmed", message)
+
+	var token models.GoogleToken
+	if err := db.Where("employee_id = ?", employeeID).First(&token).Error; err == nil {
+		oauthToken := &oauth2.Token{
+			AccessToken:  token.AccessToken,
+			RefreshToken: token.RefreshToken,
+			Expiry:       token.Expiry,
+		}
+
+		client := googleapi.GetClient(oauthToken)
+
+		srv, err := calendar.New(client)
+		if err == nil {
+			event := &calendar.Event{
+				Summary:     "Meeting Room Booking",
+				Location:    fmt.Sprintf("Room ID %d", existing.RoomID),
+				Description: fmt.Sprintf("Booked by %s", employee.Name),
+				Start: &calendar.EventDateTime{
+					DateTime: existing.StartTime.Format(time.RFC3339),
+					TimeZone: "Asia/Kolkata",
+				},
+				End: &calendar.EventDateTime{
+					DateTime: existing.EndTime.Format(time.RFC3339),
+					TimeZone: "Asia/Kolkata",
+				},
+			}
+
+			_, err = srv.Events.Insert("primary", event).Do()
+			if err != nil {
+				fmt.Printf("Failed to create Google Calendar event: %v\n", err)
+			}
+		} else {
+			fmt.Printf("Failed to create Google Calendar client: %v\n", err)
+		}
+	} else {
+		fmt.Println("Google Calendar not linked for employee:", employeeID)
 	}
 
 	resp, _ := json.Marshal(existing)

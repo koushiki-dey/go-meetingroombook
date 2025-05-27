@@ -357,6 +357,11 @@ func DeleteBooking(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("Failed to delete calendar event:", err)
 	}
+	var employee models.Employee
+	db.First(&employee, employeeID)
+	message := fmt.Sprintf("Hi %s,\n\nYour meeting room booking which was confirmed from %s to %s in Room ID %d has been deleted.",
+		employee.Name, booking.StartTime, booking.EndTime, booking.RoomID)
+	go utils.SendEmail(employee.Email, "Meeting Room Booking Cancelled", message)
 
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -12,7 +12,6 @@
     <button type="submit">Login</button>
   </form>
 
-  <h2>Or</h2>
   <button id="googleLoginBtn">Login with Google</button>
 
   <h3>Status:</h3>
@@ -48,7 +47,6 @@
     });
 
     document.getElementById('googleLoginBtn').addEventListener('click', () => {
-      // Redirect user to Google login URL on your backend
       window.location.href = 'http://localhost:9010/google/login';
     });
 

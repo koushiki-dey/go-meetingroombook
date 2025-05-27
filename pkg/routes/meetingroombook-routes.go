@@ -10,7 +10,6 @@ func RegisterMeetingRoomRoutes(router *mux.Router) {
 	router.HandleFunc("/login", controllers.Login).Methods("POST")
 	router.HandleFunc("/logout", controllers.Logout).Methods("POST")
 
-	router.HandleFunc("/employees", controllers.CreateEmployee).Methods("POST")
 	router.HandleFunc("/employees", controllers.GetEmployees).Methods("GET")
 	router.HandleFunc("/employees/{id}", controllers.GetEmployee).Methods("GET")
 	router.HandleFunc("/employees/{id}", controllers.UpdateEmployees).Methods("PUT")

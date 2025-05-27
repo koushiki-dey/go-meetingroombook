@@ -243,6 +243,17 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	var existingBookings []models.Booking
+	db.Where("room_id = ?", updated.RoomID).Find(&existingBookings)
+
+	var room models.Room
+	db.Where("ID = ?", updated.RoomID).Find(&room)
+	numberOfAttendees := updated.NumAttendees
+	maxCapacity := *room.Capacity
+	if _, err := utils.IsCapacityExceeding(numberOfAttendees, maxCapacity); err != nil {
+		http.Error(w, "Capacity Exceeded", http.StatusBadRequest)
+		return
+	}
 
 	var conflicts []models.Booking
 	db.Where("room_id = ? AND id != ?", updated.RoomID, id).Find(&conflicts)

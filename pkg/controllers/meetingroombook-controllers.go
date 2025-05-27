@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -117,10 +118,19 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 				},
 			}
 
-			_, err = srv.Events.Insert("primary", event).Do()
+			createdEvent, err := srv.Events.Insert("primary", event).Do()
 			if err != nil {
 				fmt.Printf("Failed to create Google Calendar event: %v\n", err)
+			} else {
+
+				booking.CalendarID = createdEvent.Id
+				result := db.Model(&models.Booking{}).Where("id = ?", booking.ID).Update("calendar_id", createdEvent.Id)
+				if result.Error != nil {
+					fmt.Println("Failed to update calendar ID:", result.Error)
+				}
+
 			}
+
 		} else {
 			fmt.Printf("Failed to create Google Calendar client: %v\n", err)
 		}
@@ -247,6 +257,10 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	err = googleapi.DeleteCalendarEvent(existing.EmployeeID, existing.CalendarID)
+	if err != nil {
+		log.Println("Failed to delete calendar event:", err)
+	}
 
 	existing.RoomID = updated.RoomID
 	existing.EmployeeID = updated.EmployeeID
@@ -258,6 +272,7 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to update booking", http.StatusInternalServerError)
 		return
 	}
+
 	var employee models.Employee
 	db.First(&employee, employeeID)
 	message := fmt.Sprintf("Hi %s,\n\nYour meeting room booking is confirmed from %s to %s in Room ID %d.",
@@ -336,6 +351,11 @@ func DeleteBooking(w http.ResponseWriter, r *http.Request) {
 	if err := db.Delete(&booking).Error; err != nil {
 		http.Error(w, "Failed to delete booking", http.StatusInternalServerError)
 		return
+	}
+
+	err = googleapi.DeleteCalendarEvent(booking.EmployeeID, booking.CalendarID)
+	if err != nil {
+		log.Println("Failed to delete calendar event:", err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

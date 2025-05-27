@@ -14,6 +14,7 @@ type Booking struct {
 	EndTime      time.Time `json:"end_time"`
 	NumAttendees int       `json:"num_attendees"`
 	ReminderSent bool
+	CalendarID   string
 
 	Room     Room
 	Employee Employee

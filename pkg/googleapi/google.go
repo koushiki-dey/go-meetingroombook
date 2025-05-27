@@ -10,15 +10,17 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koushikidey/go-meetingroombook/pkg/config"
+	"github.com/koushikidey/go-meetingroombook/pkg/models"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
 )
 
-var config *oauth2.Config
+var con *oauth2.Config
 
 func InitOAuth(clientID, clientSecret, redirectURL string) {
-	config = &oauth2.Config{
+	con = &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		RedirectURL:  redirectURL,
@@ -35,15 +37,15 @@ func GetAuthURLWithUser(userID uint) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return config.AuthCodeURL(state, oauth2.AccessTypeOffline), nil
+	return con.AuthCodeURL(state, oauth2.AccessTypeOffline), nil
 }
 
 func ExchangeCode(code string) (*oauth2.Token, error) {
-	return config.Exchange(context.Background(), code)
+	return con.Exchange(context.Background(), code)
 }
 
 func GetClient(token *oauth2.Token) *http.Client {
-	return config.Client(context.Background(), token)
+	return con.Client(context.Background(), token)
 }
 
 func generateNonce(n int) (string, error) {
@@ -78,4 +80,33 @@ func ParseState(state string) (uint, error) {
 		return 0, err
 	}
 	return userID, nil
+}
+
+func DeleteCalendarEvent(employeeID uint, calendarEventID string) error {
+	config.Connect()
+	db := config.GetDB()
+
+	var token models.GoogleToken
+	if err := db.Where("employee_id = ?", employeeID).First(&token).Error; err != nil {
+		return fmt.Errorf("failed to find Google token: %w", err)
+	}
+
+	oauthToken := &oauth2.Token{
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		Expiry:       token.Expiry,
+	}
+	client := GetClient(oauthToken)
+
+	srv, err := calendar.New(client)
+	if err != nil {
+		return fmt.Errorf("failed to create calendar client: %w", err)
+	}
+
+	err = srv.Events.Delete("primary", calendarEventID).Do()
+	if err != nil {
+		return fmt.Errorf("failed to delete calendar event: %w", err)
+	}
+
+	return nil
 }

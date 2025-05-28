@@ -12,11 +12,13 @@ import (
 )
 
 func init() {
-
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := godotenv.Load(); err != nil {
+		log.Println("Info: .env file not loaded, using system environment variables")
 	}
+	// err := godotenv.Load(".env")
+	// if err != nil {
+	// 	log.Fatal("Error loading .env file")
+	// }
 }
 
 var (

@@ -37,8 +37,9 @@ func ParseBody(r *http.Request, x interface{}) {
 	}
 }
 
+var ErrCapacityExceeded = errors.New("capacity exceeded")
+
 func IsCapacityExceeding(numberOfAttendees, maxCapacity int) (bool, error) {
-	var ErrCapacityExceeded = errors.New("capacity exceeded")
 	if numberOfAttendees > maxCapacity {
 		return true, ErrCapacityExceeded
 	}

@@ -315,11 +315,19 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 					TimeZone: "Asia/Kolkata",
 				},
 			}
-
-			_, err = srv.Events.Insert("primary", event).Do()
+			createdEvent, err := srv.Events.Insert("primary", event).Do()
 			if err != nil {
 				fmt.Printf("Failed to create Google Calendar event: %v\n", err)
+			} else {
+
+				existing.CalendarID = createdEvent.Id
+				result := db.Model(&models.Booking{}).Where("id = ?", existing.ID).Update("calendar_id", createdEvent.Id)
+				if result.Error != nil {
+					fmt.Println("Failed to update calendar ID:", result.Error)
+				}
+
 			}
+
 		} else {
 			fmt.Printf("Failed to create Google Calendar client: %v\n", err)
 		}

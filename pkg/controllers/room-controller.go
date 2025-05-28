@@ -11,47 +11,99 @@ import (
 	"github.com/koushikidey/go-meetingroombook/pkg/config"
 	"github.com/koushikidey/go-meetingroombook/pkg/models"
 	"github.com/koushikidey/go-meetingroombook/pkg/utils"
+	"gorm.io/gorm"
 )
 
-func CreateRoom(w http.ResponseWriter, r *http.Request) {
-	var room models.Room
+// func CreateRoom(w http.ResponseWriter, r *http.Request) {
+// 	var room models.Room
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Failed to read request body", http.StatusBadRequest)
-		return
-	}
+// 	body, err := io.ReadAll(r.Body)
+// 	if err != nil {
+// 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+// 		return
+// 	}
 
-	if err := json.Unmarshal(body, &room); err != nil {
-		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
-		return
+// 	if err := json.Unmarshal(body, &room); err != nil {
+// 		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+// 		return
+// 	}
+// 	config.Connect()
+// 	db := config.GetDB()
+// 	if err := db.Create(&room).Error; err != nil {
+// 		http.Error(w, "Could not create room: "+err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+// 	var createdRoom models.Room
+// 	if err := db.First(&createdRoom, room.ID).Error; err != nil {
+// 		http.Error(w, "Could not retrieve created room "+err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusCreated)
+// 	json.NewEncoder(w).Encode(createdRoom)
+// }
+
+// func GetRooms(w http.ResponseWriter, r *http.Request) {
+// 	var rooms []models.Room
+// 	config.Connect()
+// 	db := config.GetDB()
+// 	db.Preload("Bookings.Room").Preload("Bookings.Employee").Find(&rooms)
+
+//		resp, _ := json.Marshal(rooms)
+//		w.Header().Set("Content-type", "application/json")
+//		w.Write(resp)
+//	}
+func GetRoomsWithDB(db *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var rooms []models.Room
+		db.Preload("Bookings.Room").Preload("Bookings.Employee").Find(&rooms)
+
+		resp, _ := json.Marshal(rooms)
+		w.Header().Set("Content-type", "application/json")
+		w.Write(resp)
 	}
-	config.Connect()
+}
+func GetRooms(w http.ResponseWriter, r *http.Request) {
+	//config.Connect()
 	db := config.GetDB()
-	if err := db.Create(&room).Error; err != nil {
-		http.Error(w, "Could not create room: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	var createdRoom models.Room
-	if err := db.First(&createdRoom, room.ID).Error; err != nil {
-		http.Error(w, "Could not retrieve created room "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(createdRoom)
+	GetRoomsWithDB(db)(w, r)
 }
 
-func GetRooms(w http.ResponseWriter, r *http.Request) {
-	var rooms []models.Room
-	config.Connect()
-	db := config.GetDB()
-	db.Preload("Bookings.Room").Preload("Bookings.Employee").Find(&rooms)
+func CreateRoomWithDB(db *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var room models.Room
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			return
+		}
 
-	resp, _ := json.Marshal(rooms)
-	w.Header().Set("Content-type", "application/json")
-	w.Write(resp)
+		if err := json.Unmarshal(body, &room); err != nil {
+			http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := db.Create(&room).Error; err != nil {
+			http.Error(w, "Could not create room: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var createdRoom models.Room
+		if err := db.First(&createdRoom, room.ID).Error; err != nil {
+			http.Error(w, "Could not retrieve created room "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(createdRoom)
+
+	}
+}
+
+func CreateRoom(w http.ResponseWriter, r *http.Request) {
+	//config.Connect()
+	db := config.GetDB()
+	CreateRoomWithDB(db)(w, r)
 }
 
 func UpdateRoom(w http.ResponseWriter, r *http.Request) {

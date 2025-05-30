@@ -5,17 +5,21 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
-
 	"path/filepath"
 
+	"time"
+
 	"github.com/gorilla/mux"
+	"github.com/koushikidey/go-meetingroombook/pkg/cache"
 	"github.com/koushikidey/go-meetingroombook/pkg/config"
 	"github.com/koushikidey/go-meetingroombook/pkg/googleapi"
 	"github.com/koushikidey/go-meetingroombook/pkg/models"
 	"github.com/koushikidey/go-meetingroombook/pkg/routes"
 	"github.com/koushikidey/go-meetingroombook/pkg/utils"
+
+	_ "github.com/koushikidey/go-meetingroombook/docs"
 	"github.com/robfig/cron/v3"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 var reminderCron *cron.Cron
@@ -67,11 +71,17 @@ func startReminderJob() {
 	reminderCron.Start()
 }
 
+// @title Meeting Room Booking API
+// @version 1.0
+// @description API documentation for Meeting Room Booking system
+// @host localhost:9010
+// @BasePath /
+
 func main() {
 	log.Println("Application starting...")
 
 	config.Connect()
-
+	cache.InitCache()
 	startReminderJob()
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
@@ -93,6 +103,7 @@ func main() {
 	}
 
 	log.Println("index.html found! Serving from:", frontendPath)
+	router.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 	router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir(frontendPath))))
 
 	log.Println(" Server running at http://localhost:9010")

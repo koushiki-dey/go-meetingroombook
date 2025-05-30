@@ -45,7 +45,7 @@ import (
 // }
 
 // func GetRooms(w http.ResponseWriter, r *http.Request) {
-// 	var rooms []models.Room
+// 	var rooms []models.RoomDTO
 // 	config.Connect()
 // 	db := config.GetDB()
 // 	db.Preload("Bookings.Room").Preload("Bookings.Employee").Find(&rooms)
@@ -64,6 +64,15 @@ func GetRoomsWithDB(db *gorm.DB) http.HandlerFunc {
 		w.Write(resp)
 	}
 }
+
+// GetRooms godoc
+// @Summary Get list of all rooms
+// @Description Retrieves all rooms along with their bookings and booked employees
+// @Tags Rooms
+// @Produce json
+// @Success 200 {array} models.RoomDTO
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /rooms [get]
 func GetRooms(w http.ResponseWriter, r *http.Request) {
 	//config.Connect()
 	db := config.GetDB()
@@ -100,12 +109,36 @@ func CreateRoomWithDB(db *gorm.DB) http.HandlerFunc {
 	}
 }
 
+// CreateRoom godoc
+// @Summary Create a new room
+// @Description Adds a new meeting room to the system
+// @Tags Rooms
+// @Accept json
+// @Produce json
+// @Param room body models.RoomDTO true "Room details"
+// @Success 201 {object} models.RoomDTO
+// @Failure 400 {string} string "Invalid JSON or bad request"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /rooms [post]
 func CreateRoom(w http.ResponseWriter, r *http.Request) {
 	//config.Connect()
 	db := config.GetDB()
 	CreateRoomWithDB(db)(w, r)
 }
 
+// UpdateRoom godoc
+// @Summary Update room details
+// @Description Update details of existing room by ID
+// @Tags Rooms
+// @Accept json
+// @Produce json
+// @Param id path int true "Room ID"
+// @Param room body models.RoomDTO true "Room details to update"
+// @Success 200 {object} models.RoomDTO
+// @Failure 400 {string} string "Invalid JSON or bad request"
+// @Failure 404 {string} string "Room not found"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /rooms/{id} [put]
 func UpdateRoom(w http.ResponseWriter, r *http.Request) {
 	var updateRoom = &models.Room{}
 	utils.ParseBody(r, updateRoom)

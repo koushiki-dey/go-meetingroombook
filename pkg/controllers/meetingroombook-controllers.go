@@ -21,6 +21,19 @@ import (
 	"gorm.io/gorm"
 )
 
+// CreateBooking godoc
+// @Summary Create a new booking
+// @Description Creates a new booking if the time and capacity constraints are satisfied. Sends confirmation email and adds Google Calendar event if linked.
+// @Tags Bookings
+// @Accept json
+// @Produce json
+// @Param booking body models.BookingDTO true "Booking request data"
+// @Success 201 {object} models.BookingDTO
+// @Failure 400 {string} string "Invalid input or time conflict"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 409 {string} string "Booking time conflict"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /bookings [post]
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	sessionData, _ := session.GetStore().Get(r, "session")
 	employeeID, ok := sessionData.Values["employee_id"].(uint)
@@ -144,6 +157,14 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+// GetBookings godoc
+// @Summary Get list of all bookings
+// @Description Retrieves all bookings along with all details
+// @Tags Bookings
+// @Produce json
+// @Success 200 {array} models.BookingDTO
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /bookings [get]
 func GetBookings(w http.ResponseWriter, r *http.Request) {
 	// session, _ := session.GetStore().Get(r, "session")
 	// employeeID, ok := session.Values["employee_id"].(uint)
@@ -162,6 +183,17 @@ func GetBookings(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+// GetBooking godoc
+// @Summary Get booking by booking ID
+// @Description Retrieves booking details by ID including employee and room info
+// @Tags Bookings
+// @Produce json
+// @Param id path uint true "Booking ID"
+// @Success 200 {object} models.BookingDTO
+// @Failure 400 {string} string "Invalid ID"
+// @Failure 404 {string} string "Booking not found"
+// @Failure 500 {string} string "Error marshalling data"
+// @Router /bookings/{id} [get]
 func GetBooking(w http.ResponseWriter, r *http.Request) {
 	session, _ := session.GetStore().Get(r, "session")
 	employeeID, ok := session.Values["employee_id"].(uint)
@@ -200,6 +232,21 @@ func GetBooking(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+// UpdateBooking godoc
+// @Summary Update existing booking details
+// @Description Allows an authenticated employee to update their booking
+// @Tags Bookings
+// @Accept json
+// @Produce json
+// @Param id path int true "Booking ID"
+// @Param booking body models.BookingDTO true "Updated booking details"
+// @Success 200 {object} models.BookingDTO
+// @Failure 400 {string} string "Invalid Employee ID or JSON input"
+// @Failure 401 {string} string "Unauthorized (not logged in)"
+// @Failure 403 {string} string "Forbidden (trying to update another employee's booking)"
+// @Failure 404 {string} string "Booking not found"
+// @Failure 500 {string} string "Failed to update booking"
+// @Router /booking/{id} [put]
 func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 	session, _ := session.GetStore().Get(r, "session")
 	employeeID, ok := session.Values["employee_id"].(uint)
@@ -340,6 +387,20 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+// DeleteBooking godoc
+// @Summary Delete existing booking details
+// @Description Allows an authenticated employee to delete their booking
+// @Tags Bookings
+// @Accept json
+// @Produce json
+// @Param id path int true "Booking ID"
+// @Param booking body models.BookingDTO true "Deleted booking details"
+// @Failure 400 {string} string "Invalid Employee ID or JSON input"
+// @Failure 401 {string} string "Unauthorized (not logged in)"
+// @Failure 403 {string} string "Forbidden (trying to update another employee's booking)"
+// @Failure 404 {string} string "Booking not found"
+// @Failure 500 {string} string "Failed to delete booking"
+// @Router /booking/{id} [delete]
 func DeleteBooking(w http.ResponseWriter, r *http.Request) {
 	session, _ := session.GetStore().Get(r, "session")
 	employeeID, ok := session.Values["employee_id"].(uint)

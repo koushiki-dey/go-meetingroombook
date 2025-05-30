@@ -19,3 +19,13 @@ type Booking struct {
 	Room     Room
 	Employee Employee
 }
+
+// BookingDTO represents a booking for Swagger
+// swagger:model Booking
+type BookingDTO struct {
+	RoomID       uint      `json:"room_id"`
+	EmployeeID   uint      `json:"employee_id"`
+	StartTime    time.Time `json:"start_time"`
+	EndTime      time.Time `json:"end_time"`
+	NumAttendees int       `json:"num_attendees"`
+}
